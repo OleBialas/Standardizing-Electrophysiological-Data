@@ -1,0 +1,9 @@
+[project]
+name = "standardizing-electrophysiological-data"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "allensdk>=2.16.2",
+]
