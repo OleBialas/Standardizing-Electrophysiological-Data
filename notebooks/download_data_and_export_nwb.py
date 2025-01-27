@@ -79,23 +79,6 @@ for i_ses, session_id in enumerate(sessions.index):
 
 
 
-
-#| ref.label: ses-loop
-    subject = Subject(
-        subject_id = str(i_ses+1).zfill(2),
-        age=f"P{int(metadata['age_in_days'])}",
-        species = "Mus musculus",
-        sex = metadata['sex'],
-        genotype = metadata['full_genotype'],
-        description = f"mouse {metadata['specimen_name']}"
-)
-
-
-
-
-
-
-
 #| ref.label: ses-loop
     ses_channels = session.channels
     ses_channels = ses_channels[ses_channels.ecephys_structure_acronym.isin(BRAIN_AREAS)]
@@ -125,17 +108,27 @@ for i_ses, session_id in enumerate(sessions.index):
 
 
 
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
+
+        subject = Subject(
+            subject_id = str(i_ses+1).zfill(2),
+            age=f"P{int(metadata['age_in_days'])}",
+            species = "Mus musculus",
+            sex = metadata['sex'],
+            genotype = metadata['full_genotype'],
+            description = f"mouse {metadata['specimen_name']}"
+            )
         nwb = NWBFile(
             session_description="Ecephys recordings for multiple Neuropixels probes",
             identifier=f"session{session_id}_run{i_epoch+1}",
             session_start_time=metadata["session_start_time"],
-        )
+            )
         nwb.subject = subject
         ecephys_module = nwb.create_processing_module(
             name="ecephys", description="processed extracellular electrophysiology data"
-        )
+            )
         out_fname = f"sub-{subject.subject_id}_run-{i_epoch+1}_ecephys.nwb"
         out_fpath = root/"data"/"nwb"/f"sub-{subject.subject_id}"/out_fname
         if not out_fpath.parent.exists():
