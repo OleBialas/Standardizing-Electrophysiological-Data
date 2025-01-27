@@ -9,8 +9,7 @@ import numpy as np
 from allensdk.brain_observatory.ecephys.ecephys_project_cache import EcephysProjectCache
 from pynwb import NWBFile, NWBHDF5IO
 from pynwb.file import Subject
-from pynwb.ecephys import LFP, ElectricalSeries
-from pynwb.behavior import BehavioralEpochs
+from pynwb.ecephys import ElectricalSeries
 from pynwb.epoch import TimeIntervals
 
 
@@ -30,7 +29,12 @@ CLEAR_CACHE = True
 
 
 
-root = Path.cwd().parent.absolute()
+
+#| eval: false
+root = Path(__file__).parent.parent.absolute()
+
+
+
 cache_dir = root/"data"/"cache"
 if not cache_dir.exists():
     cache_dir.mkdir(parents=True)
