@@ -1,8 +1,8 @@
-# Download Data and Export NWB
-This notebook downloads data from the Allen Institute's [visual coding dataset](https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html) and exports it using the neurodata without borders (NWB) format.
-For each recording session, a single NWB file is written.
 
-```{python}
+
+
+
+
 from pathlib import Path
 from datetime import timedelta
 import numpy as np
@@ -12,70 +12,70 @@ from pynwb.file import Subject
 from pynwb.ecephys import LFP, ElectricalSeries
 from pynwb.behavior import BehavioralEpochs
 from pynwb.epoch import TimeIntervals
-```
 
-## Parameters
-Because the original dataset is very large (~15GB per session), only parts of the data are extracted.
-The relevant parts of the data are determined by the parameters `GENOTYPES`, `SESSION_TYPES`, `BRAIN_AREAS` and `STIMULUS_TYPES`.
-When `CLEAR_CACHE` is set to `True`, the downloaded files are deleted after the NWB file has been exported.
-```{python}
+
+
+
+
+
+
 GENOTYPES = ["wt/wt"]
 SESSION_TYPES = ["brain_observatory_1.1"]
 BRAIN_AREAS = ["VISpm"]
 STIMULUS_TYPES = ["gabors", "flashes"]
 CLEAR_CACHE = True
-```
 
-## Caching data
 
-Data will be downloaded using the `allensdk` and stored in the directory `data/cache`.
-```{python}
+
+
+
+
 root = Path.cwd().parent.absolute()
 cache_dir = root/"data"/"cache"
 if not cache_dir.exists():
     cache_dir.mkdir(parents=True)
-```
 
-## Get sessions
 
-Get the table listing all recording `sessions` and filter them to only include the selected `SESSION_TYPES` and `GENOTYPES`.
-```{python}
+
+
+
+
 cache = EcephysProjectCache.from_warehouse(manifest=cache_dir/"manifest.json")
 sessions = cache.get_session_table()
 sessions = sessions[sessions.full_genotype.isin(GENOTYPES)]
 sessions = sessions[sessions.session_type.isin(SESSION_TYPES)]
 print(f"Selected {len(sessions)} sessions")
 # sessions = sessions.iloc[:1] # for testing purposes, just do a single session
-```
 
-## Get channels
 
-Get the table of all channels to look up electrode locations.
-To save space the channels table is filtered for the `BRAIN_AREAS` of interest.
-```{python}
+
+
+
+
+
 channels = cache.get_channels()
 channels = channels[channels.ecephys_structure_acronym.isin(BRAIN_AREAS)]
 channels = channels[channels.ecephys_session_id.isin(sessions.index)]
-```
 
-## Download session data
 
-Iterate the filtered sessions table and download the `session` data and `metadata`.
 
-```{python}
+
+
+
+
 #| label: ses-loop
 for i_ses, session_id in enumerate(sessions.index):
     print(f"##### Sub {str(i_ses+1).zfill(2)} #####")
     session = cache.get_session_data(session_id)
     metadata = session.metadata
-```
 
-## Define subject
 
-We are assiging new subject IDs starting from sub-01.
-The original subject name is stored in `subject.description` so the data can be mapped back to the original data set.
 
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     subject = Subject(
         subject_id = str(i_ses+1).zfill(2),
@@ -85,25 +85,25 @@ The original subject name is stored in `subject.description` so the data can be 
         genotype = metadata['full_genotype'],
         description = f"mouse {metadata['specimen_name']}"
 )
-```
 
 
-## Identify probes with channels in ROI
 
-Check the `channels` table to find which electrodes lie in `BRAIN_AREAS` of interest and get the probe_id
-```{python}
+
+
+
+
 #| ref.label: ses-loop
     ses_channels = session.channels
     ses_channels = ses_channels[ses_channels.ecephys_structure_acronym.isin(BRAIN_AREAS)]
     probes = ses_channels.probe_id.unique()
-```
 
 
-## Find relevant time intervals
 
-Load the stimulus table and select the epochs where the `SIMULUS_TYPES` of interest where presented.
-Then, iterate the epochs and crea
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| label: run-loop
     epochs = session.get_stimulus_epochs()
@@ -112,15 +112,15 @@ Then, iterate the epochs and crea
         print(f"##### Run {i_epoch+1} #####")
         epoch = epochs.iloc[i_epoch]
         t_start = metadata["session_start_time"]+timedelta(seconds=epoch.start_time)
-```
 
-## Create new NWB file
 
-Create a new nwb file and add information about subject.
-The start time calculated by adding the start time of the `epoch` to the session's start time.
-The file identifier is the original session id and the run number, separated by an underscore.
-Also, we create an `ecephys_module` to store LFPs and spike times.
-```{python}
+
+
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         nwb = NWBFile(
@@ -137,13 +137,13 @@ Also, we create an `ecephys_module` to store LFPs and spike times.
         if not out_fpath.parent.exists():
             out_fpath.parent.mkdir(parents=True)
         
-```
 
-## Load LFP data
 
-Load the recorded LFP time series and select the channels in `BRAIN_AREAS` of interest and the stime interval for the current run.
-Because not all listed channels are actually in the `lfp` (probably due to signal quality), we have to check each channel before selecting the data
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         #| label: probe-loop
@@ -157,13 +157,13 @@ Because not all listed channels are actually in the `lfp` (probably due to signa
             probe_channels = probe_channels[probe_channels.index.isin(valid_channel_ids)] 
             times = lfp.time[np.logical_and(epoch.start_time<lfp.time, lfp.time<epoch.stop_time)]
             lfp = lfp.sel(channel=probe_channels.index, time=times)
-```
 
-## Create electrode table
 
-Before storing electrophysiological data, we have to add the elctrode that was used for recording the data.
-Create 1 `device` per probe, 1 `electrode_group` per brain area (`location`) and then add the respective electrodes.
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         #| ref.label: probe-loop
@@ -184,13 +184,13 @@ Create 1 `device` per probe, 1 `electrode_group` per brain area (`location`) and
                         id = electrode_id,
                         location=location,
                     )
-```
 
-## Add LFP data to NWB
 
-Now we can add the previously loaded LFP data to the NWB file.
-To do this, we need a `DynamicTableRegion` that maps the `ElectricalSeries` to entries in the table stored in `nwb.electrodes`.
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         #| ref.label: probe-loop
@@ -209,17 +209,17 @@ To do this, we need a `DynamicTableRegion` that maps the `ElectricalSeries` to e
             )
             ecephys_module.add(lfp);
         
-```
 
-The [nwbpy tutorial](https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html#lfp) recommends wrapping the `ElectricalSeries` inside a `LFP` class but this is counter-productive: It makes the data harder to interact with (instead of `lfp.data` you have to type `lfp.electrical_series['LFP'].data`) and we already have the `name` and `description` fields to indicate the kind of data
-```{python}
-            # lfp = LFP(electrical_series=lfp)
-```
 
-## Spike times
-Get the table of recorded `units` and select those in `BRAIN_AREAS` of interest.
-Then, get the `spike_times`, select those that belong to the selected `units` and crop them to the `epoch` interval.
-```{python}
+
+
+# lfp = LFP(electrical_series=lfp)
+
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         units = session.units
@@ -232,11 +232,11 @@ Then, get the `spike_times`, select those that belong to the selected `units` an
                     spike_times[uid]<=epoch.stop_time,
                 )]
             spike_times[uid]-=spike_times[uid][0]  # start at 0
-```
 
-## Mean waveforms
-Load the `mean_waveforms` of each unit, keep only the waveforms recorded at channels that are present in the nwb file's electrodes table. Then, for each unit, select the waveform with the largest peak-to-peak amplitude (i.e. from the channel closest to the unit).
-```{python}
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         mean_waveforms = session.mean_waveforms
@@ -246,23 +246,23 @@ Load the `mean_waveforms` of each unit, keep only the waveforms recorded at chan
             mean_waveform = mean_waveform.sel(channel_id=nwb.electrodes.id[:])
             peak_to_peak = mean_waveform.data.max(axis=1) - mean_waveform.data.min(axis=1)
             max_waveforms[uid] = mean_waveform.data[np.argmax(peak_to_peak)]
-```
 
-## Add units
-Add the units to the `nwb` file.
 
-```{python}
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         for uid in units.index:
             nwb.add_unit(spike_times=spike_times[uid], waveform_mean=max_waveforms[uid], id=uid)
-```
 
-## Add running running speed
 
-Store the running data as `TimeIntervals` with a `start_time`, `stop_time` and `velocity`.
 
-```{python}
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         running_speed = session.running_speed
@@ -276,12 +276,12 @@ Store the running data as `TimeIntervals` with a `start_time`, `stop_time` and `
         for i, rs_row in running_speed.iterrows():
             running_intervals.add_row(start_time=rs_row.start_time, stop_time=rs_row.end_time, velocity=rs_row.velocity)
         nwb.add_time_intervals(running_intervals)
-```
 
-## Add stimulus info
 
-Find out which stimulus type was presented during this run
-```{python}
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         stimuli = session.get_stimulus_table()
@@ -290,26 +290,26 @@ Find out which stimulus type was presented during this run
         stim_type = stimuli.stimulus_name.unique()
         assert len(stim_type)==1
         stim_type = stim_type[0]
-```
 
-### Full-field flashes
 
-For flashes, we only need `start_time`, `stop_time` and `color`.
-The latter indicates whether the stimulus was white (1) or black (-1).
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         if stim_type == "flashes":
             nwb.add_trial_column(name="color", description="Stimulus color (1=white, -1=black)")
             for _, stim in stimuli.iterrows():
                 nwb.add_trial(start_time=stim.start_time, stop_time=stim.stop_time, color=stim.color)
-```
 
-### Gabors
 
-For Gabor patches, we need position and orientation in x and y.
-Temporal and spatial frequency, as well as size are the same for all stimuli.
-```{python}
+
+
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         if stim_type == "gabors":
@@ -333,15 +333,12 @@ Temporal and spatial frequency, as well as size are the same for all stimuli.
                     y_position=stim.y_position,
                     orientation=stim.orientation
                 )
-```
 
-## Save results
 
-```{python}
+
+
+
 #| ref.label: ses-loop
     #| ref.label: run-loop
         with NWBHDF5IO(out_fpath, mode="w") as io:
             io.write(nwb)
-```
-
-
